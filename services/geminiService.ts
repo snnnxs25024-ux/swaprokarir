@@ -1,14 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIAnalysisResult } from "../types";
 
-const getAIClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    console.error("API Key Gemini tidak ditemukan di process.env.API_KEY");
-  }
-  return new GoogleGenAI({ apiKey: apiKey || '' });
-};
-
 // Helper to clean markdown json fences robustly
 const cleanJsonText = (text: string): string => {
   // 1. Try to find content between ```json and ```
@@ -24,7 +16,7 @@ const cleanJsonText = (text: string): string => {
 };
 
 export const analyzeResumeWithGemini = async (resumeText: string, jobDescription: string): Promise<AIAnalysisResult> => {
-  const ai = getAIClient();
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
     Bertindaklah sebagai HR Manager senior. Analisis resume kandidat berikut terhadap deskripsi pekerjaan yang diberikan.
@@ -102,7 +94,7 @@ export const analyzeResumeWithGemini = async (resumeText: string, jobDescription
 };
 
 export const getCareerAdvice = async (userMessage: string): Promise<string> => {
-  const ai = getAIClient();
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
     const response = await ai.models.generateContent({
@@ -123,7 +115,7 @@ export interface VoiceValidationResult {
 }
 
 export const validateVoiceAnswer = async (transcript: string, question: string): Promise<VoiceValidationResult> => {
-  const ai = getAIClient();
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
     Anda adalah 'Swapers', AI Interviewer. 

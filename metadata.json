@@ -1,0 +1,8 @@
+{
+  "name": "SWAPRO KARIR",
+  "description": "Platform pencarian kerja cerdas dengan fitur analisis CV berbasis AI Gemini.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 
 const AIChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'model', text: 'Halo! Saya **Aira**, asisten karir cerdas Anda. \n\nSaya bisa membantu Anda dengan:\n- Tips wawancara kerja\n- Negosiasi gaji\n- Review singkat profil LinkedIn\n- Strategi karir\n\nApa yang ingin Anda diskusikan hari ini?' }
+    { role: 'model', text: 'Halo! Saya **Fairuz**, asisten karir cerdas Anda. \n\nSaya bisa membantu Anda dengan:\n- Tips wawancara kerja\n- Negosiasi gaji\n- Review singkat profil LinkedIn\n- Strategi karir\n\nApa yang ingin Anda diskusikan hari ini?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -56,7 +56,7 @@ const AIChat: React.FC = () => {
         </div>
         <div className="ml-3 text-white">
             <h3 className="font-bold text-lg flex items-center gap-2">
-              Aira - Konsultan Karir
+              Fairuz - Konsultan Karir
               <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium text-white">AI</span>
             </h3>
             <p className="text-indigo-100 text-xs opacity-90">Online • Didukung Gemini 2.5 Flash</p>
@@ -96,7 +96,7 @@ const AIChat: React.FC = () => {
                   )}
                 </div>
                 <span className={`text-[10px] text-gray-400 mt-1 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-                    {msg.role === 'user' ? 'Anda' : 'Aira AI'}
+                    {msg.role === 'user' ? 'Anda' : 'Fairuz AI'}
                 </span>
               </div>
             </div>

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, User, Building2, Loader2 } from 'lucide-react';
+import { X, User, Building2, Loader2, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
 import { login } from '../services/authService';
 import { User as UserType } from '../types';
 
@@ -12,18 +12,42 @@ interface LoginModalProps {
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [activeTab, setActiveTab] = useState<'candidate' | 'recruiter'>('candidate');
-  const [email, setEmail] = useState('kandidat@demo.com'); // Default pre-fill for demo UX
+  
+  // Form State
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('kandidat@demo.com');
+  const [password, setPassword] = useState('dummy123');
+  const [companyName, setCompanyName] = useState('');
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
   const handleTabChange = (tab: 'candidate' | 'recruiter') => {
     setActiveTab(tab);
-    // Auto-fill credential for easy demo
-    if (tab === 'candidate') setEmail('kandidat@demo.com');
-    else setEmail('rekruter@demo.com');
+    // Auto-fill credential for easy demo if in login mode
+    if (mode === 'login') {
+        if (tab === 'candidate') setEmail('kandidat@demo.com');
+        else setEmail('rekruter@demo.com');
+    } else {
+        setEmail('');
+    }
     setError('');
+  };
+
+  const toggleMode = () => {
+      setMode(mode === 'login' ? 'register' : 'login');
+      setError('');
+      if (mode === 'login') {
+          // Switching to register, clear defaults
+          setEmail('');
+          setName('');
+      } else {
+          // Switching back to login, restore defaults
+          if (activeTab === 'candidate') setEmail('kandidat@demo.com');
+          else setEmail('rekruter@demo.com');
+      }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,15 +56,32 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
     setError('');
 
     try {
-      const user = await login(email);
-      // Basic check to ensure they are logging into correct portal
-      if (user.role !== activeTab) {
-        throw new Error(`Akun ini bukan akun ${activeTab === 'candidate' ? 'Pencari Kerja' : 'Perusahaan'}`);
+      // Simulasi Register
+      if (mode === 'register') {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Fake delay
+          
+          const newUser: UserType = {
+              id: `new-user-${Date.now()}`,
+              name: name,
+              email: email,
+              role: activeTab,
+              avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
+              companyName: activeTab === 'recruiter' ? companyName : undefined
+          };
+          
+          onLoginSuccess(newUser);
+          onClose();
+      } else {
+          // Logic Login Eksisting
+          const user = await login(email);
+          if (user.role !== activeTab) {
+            throw new Error(`Akun ini bukan akun ${activeTab === 'candidate' ? 'Pencari Kerja' : 'Perusahaan'}`);
+          }
+          onLoginSuccess(user);
+          onClose();
       }
-      onLoginSuccess(user);
-      onClose();
     } catch (err: any) {
-      setError(err.message || "Gagal masuk.");
+      setError(err.message || "Gagal memproses permintaan.");
     } finally {
       setIsLoading(false);
     }
@@ -56,13 +97,15 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
         <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md w-full">
           <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
             <div className="flex justify-between items-center mb-5">
-              <h3 className="text-xl font-bold text-gray-900">Masuk ke SWAPRO</h3>
+              <h3 className="text-xl font-bold text-gray-900">
+                  {mode === 'login' ? 'Masuk ke SWAPRO' : 'Daftar Akun Baru'}
+              </h3>
               <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            {/* Tabs */}
+            {/* Role Tabs */}
             <div className="flex mb-6 bg-gray-100 p-1 rounded-lg">
               <button
                 onClick={() => handleTabChange('candidate')}
@@ -85,28 +128,72 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {mode === 'register' && (
+                  <div className="animate-fade-in">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                    <div className="relative">
+                        <User className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                        <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="Contoh: Budi Santoso"
+                        />
+                    </div>
+                  </div>
+              )}
+
+              {mode === 'register' && activeTab === 'recruiter' && (
+                  <div className="animate-fade-in">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nama Perusahaan</label>
+                    <div className="relative">
+                        <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                        <input
+                        type="text"
+                        required
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="PT Sukses Makmur"
+                        />
+                    </div>
+                  </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                />
+                <div className="relative">
+                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="nama@email.com"
+                    />
+                </div>
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <input
-                  type="password"
-                  defaultValue="dummy123" // Dummy password
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                />
-                <p className="mt-1 text-xs text-gray-500">Password bebas (Demo Mode)</p>
+                <div className="relative">
+                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                </div>
+                {mode === 'login' && <p className="mt-1 text-xs text-gray-500">Password bebas (Demo Mode)</p>}
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-md">
+                <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-md animate-shake">
                   {error}
                 </div>
               )}
@@ -114,16 +201,23 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Masuk Sekarang'}
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'login' ? 'Masuk Sekarang' : 'Daftar Sekarang')}
               </button>
             </form>
           </div>
-          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-             <p className="text-xs text-gray-500 text-center w-full">
-               Belum punya akun? <span className="text-indigo-600 font-medium cursor-pointer">Daftar disini</span>
-             </p>
+          <div className="bg-gray-50 px-4 py-4 sm:px-6 flex justify-center">
+             <button 
+                onClick={toggleMode}
+                className="text-sm text-gray-600 hover:text-indigo-600 font-medium flex items-center gap-2 transition-colors"
+             >
+               {mode === 'login' ? (
+                   <>Belum punya akun? <span className="text-indigo-600">Daftar disini</span></>
+               ) : (
+                   <>Sudah punya akun? <span className="text-indigo-600">Masuk disini</span></>
+               )}
+             </button>
           </div>
         </div>
       </div>

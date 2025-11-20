@@ -1,16 +1,17 @@
 
 import React from 'react';
 import { Job, Application } from '../types';
-import { Briefcase, Users, TrendingUp, Search, Eye } from 'lucide-react';
+import { Briefcase, Users, TrendingUp, Search, Eye, Edit } from 'lucide-react';
 
 interface RecruiterDashboardProps {
   jobs: Job[];
   applications: Application[];
   onViewApplicants: (jobId: string) => void;
   onPostJob: () => void;
+  onEditJob?: (job: Job) => void; // New Prop
 }
 
-const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ jobs, applications, onViewApplicants, onPostJob }) => {
+const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ jobs, applications, onViewApplicants, onPostJob, onEditJob }) => {
   // Calculate stats
   const totalJobs = jobs.length;
   const totalApplicants = applications.length;
@@ -137,10 +138,18 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ jobs, applicati
                                         Aktif
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex gap-2 justify-end">
+                                    {onEditJob && (
+                                        <button 
+                                            onClick={() => onEditJob(job)}
+                                            className="text-gray-600 hover:text-indigo-900 hover:bg-gray-100 px-3 py-1 rounded-md transition flex items-center gap-1"
+                                        >
+                                            <Edit className="w-4 h-4" /> Edit
+                                        </button>
+                                    )}
                                     <button 
                                         onClick={() => onViewApplicants(job.id)}
-                                        className="text-indigo-600 hover:text-indigo-900 flex items-center gap-1 float-right hover:bg-indigo-50 px-3 py-1 rounded-md transition"
+                                        className="text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 px-3 py-1 rounded-md transition flex items-center gap-1"
                                     >
                                         <Eye className="w-4 h-4" /> Kelola
                                     </button>

@@ -13,14 +13,18 @@ import LiveInterview from './components/LiveInterview';
 import InterviewCenter from './components/InterviewCenter';
 import SwapersInterview from './components/SwapersInterview';
 import CandidateDashboard from './components/CandidateDashboard';
+import CandidateProfile from './components/CandidateProfile';
 import { MOCK_JOBS, MOCK_APPLICATIONS, MOCK_TEMPLATES } from './services/mockData';
 import { Job, User, Application, ApplicationStatus, InterviewTemplate } from './types';
-import { Building, Briefcase, ArrowLeft, CheckCircle2, Lock } from 'lucide-react';
+import { Building, Briefcase, ArrowLeft, CheckCircle2, Lock, LogOut } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState('home');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   
+  // Edit Job State
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
+
   // Interview State
   const [isInterviewActive, setIsInterviewActive] = useState(false);
   const [interviewOpponent, setInterviewOpponent] = useState('');
@@ -51,9 +55,13 @@ const App: React.FC = () => {
         return; 
     }
     // Jika Candidate View
-    if (viewId === 'candidate-dashboard' && user?.role !== 'candidate') {
+    if ((viewId === 'candidate-dashboard' || viewId === 'profile') && user?.role !== 'candidate') {
         return;
     }
+    
+    // Reset edit state if leaving post job
+    if (viewId !== 'post-job') setEditingJob(null);
+
     setCurrentView(viewId);
   };
 
@@ -116,8 +124,25 @@ const App: React.FC = () => {
   };
 
   const handlePostJob = (newJob: Job) => {
-      setJobs([newJob, ...jobs]);
-      setCurrentView('recruiter-dashboard'); // Redirect to dashboard after post
+      // Check if updating existing or creating new
+      const existingIndex = jobs.findIndex(j => j.id === newJob.id);
+      
+      if (existingIndex >= 0) {
+          // Update
+          const updatedJobs = [...jobs];
+          updatedJobs[existingIndex] = newJob;
+          setJobs(updatedJobs);
+      } else {
+          // Create
+          setJobs([newJob, ...jobs]);
+      }
+      setEditingJob(null);
+      setCurrentView('recruiter-dashboard'); 
+  };
+
+  const handleEditJob = (jobToEdit: Job) => {
+      setEditingJob(jobToEdit);
+      setCurrentView('post-job');
   };
 
   const handleUpdateApplicationStatus = (appId: string, status: ApplicationStatus) => {
@@ -248,7 +273,13 @@ const App: React.FC = () => {
         );
       case 'post-job':
           if (user?.role !== 'recruiter') return null;
-          return <PostJob onPostJob={handlePostJob} companyName={user.companyName || 'Perusahaan Anda'} />;
+          return (
+            <PostJob 
+                onPostJob={handlePostJob} 
+                companyName={user.companyName || 'Perusahaan Anda'} 
+                initialData={editingJob}
+            />
+          );
       
       case 'recruiter-dashboard':
           if (user?.role !== 'recruiter') return null;
@@ -256,7 +287,10 @@ const App: React.FC = () => {
             <RecruiterDashboard 
                 jobs={jobs} 
                 applications={applications} 
-                onPostJob={() => setCurrentView('post-job')}
+                onPostJob={() => {
+                    setEditingJob(null);
+                    setCurrentView('post-job');
+                }}
                 onViewApplicants={(jobId) => {
                     const job = jobs.find(j => j.id === jobId);
                     if(job) {
@@ -264,6 +298,7 @@ const App: React.FC = () => {
                         setCurrentView('applicant-list');
                     }
                 }}
+                onEditJob={handleEditJob}
             />
           );
 
@@ -276,7 +311,18 @@ const App: React.FC = () => {
                 jobs={jobs}
                 onStartInterview={() => setCurrentView('ai-interview-room')}
                 onViewJobs={() => setCurrentView('jobs')}
+                onImproveCV={() => setCurrentView('ai-resume')}
               />
+          );
+      
+      case 'profile':
+          if (user?.role !== 'candidate') return null;
+          return (
+            <CandidateProfile 
+                user={user}
+                onUpdateUser={(updatedUser) => setUser(updatedUser)}
+                onLogout={() => { setUser(null); setCurrentView('home'); }}
+            />
           );
 
       case 'interview-center':
@@ -431,7 +477,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 selection:bg-indigo-100 selection:text-indigo-900">
+    <div className={`min-h-screen bg-gray-50 font-sans text-gray-900 selection:bg-indigo-100 selection:text-indigo-900 ${user?.role === 'candidate' ? 'pb-24 md:pb-0' : ''}`}>
       {!isInterviewActive && currentView !== 'ai-interview-room' && (
           <Navbar 
             currentView={currentView} 

@@ -1,14 +1,15 @@
 
-import React, { useState } from 'react';
-import { Briefcase, DollarSign, MapPin, PlusCircle, Building, GraduationCap, Users, Clock, Calendar, CheckSquare, Star } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Briefcase, DollarSign, MapPin, PlusCircle, Building, Users, Clock, Star, Save, Edit3, GraduationCap, CheckSquare } from 'lucide-react';
 import { Job, JobType } from '../types';
 
 interface PostJobProps {
   onPostJob: (job: Job) => void;
   companyName: string;
+  initialData?: Job | null; // Optional prop for Editing
 }
 
-const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
+const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName, initialData }) => {
   // Initial State for Advanced Form
   const [formData, setFormData] = useState<Partial<Job>>({
     title: '',
@@ -17,8 +18,6 @@ const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
     type: JobType.FULL_TIME,
     description: '',
     requirements: [],
-    
-    // New Fields
     category: 'IT & Software',
     minExperience: 'Fresh Graduate',
     ageMin: 18,
@@ -35,11 +34,26 @@ const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
     deadline: ''
   });
 
-  // State khusus untuk logika Pengalaman (Fresh Grad vs Experienced)
   const [experienceMode, setExperienceMode] = useState<'fresh' | 'experienced'>('fresh');
   const [expYears, setExpYears] = useState<number>(1);
-
   const [reqInput, setReqInput] = useState('');
+
+  // Effect to populate form when Editing
+  useEffect(() => {
+      if (initialData) {
+          setFormData({ ...initialData });
+          setReqInput(initialData.requirements.join(', '));
+          
+          // Determine Experience Mode based on string content
+          if (initialData.minExperience?.toLowerCase().includes('fresh') || initialData.minExperience?.includes('kurang')) {
+              setExperienceMode('fresh');
+          } else {
+              setExperienceMode('experienced');
+              const match = initialData.minExperience?.match(/\d+/);
+              if (match) setExpYears(parseInt(match[0]));
+          }
+      }
+  }, [initialData]);
 
   const availableBenefits = [
       "BPJS Ketenagakerjaan & Kesehatan",
@@ -66,6 +80,11 @@ const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
       });
   };
 
+  const handleSaveDraft = () => {
+      // Logic simpan draft (dummy)
+      alert(`Draft "${formData.title || 'Lowongan Tanpa Judul'}" berhasil disimpan! Anda bisa melanjutkannya nanti.`);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -73,13 +92,12 @@ const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
         ? reqInput.split(',').map(r => r.trim()).filter(r => r !== '') 
         : (formData.requirements || []);
 
-    // Tentukan string experience berdasarkan mode
     const finalExperienceString = experienceMode === 'fresh' 
         ? 'Fresh Graduate / Kurang dari 1 Tahun' 
         : `Minimal ${expYears} Tahun Pengalaman`;
 
     const newJob: Job = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: initialData ? initialData.id : Math.random().toString(36).substr(2, 9), // Keep ID if editing
       title: formData.title!,
       company: companyName,
       location: formData.location!,
@@ -87,10 +105,9 @@ const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
       salaryRange: formData.salaryRange!,
       description: formData.description!,
       requirements: finalRequirements,
-      postedAt: 'Baru saja',
-      logoUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName)}&background=random`,
+      postedAt: initialData ? initialData.postedAt : 'Baru saja', // Keep posted date if editing
+      logoUrl: initialData ? initialData.logoUrl : `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName)}&background=random`,
       
-      // Map new fields
       category: formData.category,
       minExperience: finalExperienceString,
       ageMin: Number(formData.ageMin),
@@ -108,18 +125,14 @@ const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
     };
 
     onPostJob(newJob);
-    alert('Lowongan berhasil diterbitkan! Iklan Anda kini aktif.');
+    alert(initialData ? 'Perubahan lowongan berhasil disimpan!' : 'Lowongan berhasil diterbitkan! Iklan Anda kini aktif.');
     
-    // Reset basic only for ease
-    setFormData({
-        ...formData,
-        title: '',
-        description: '',
-        requirements: []
-    });
-    setReqInput('');
-    setExperienceMode('fresh');
-    setExpYears(1);
+    if (!initialData) {
+        setFormData({
+            title: '', location: '', salaryRange: '', description: '', requirements: [], category: 'IT & Software'
+        });
+        setReqInput('');
+    }
   };
 
   return (
@@ -127,10 +140,12 @@ const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
       <div className="bg-white shadow-2xl rounded-2xl overflow-hidden border border-gray-200">
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 px-8 py-6">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <PlusCircle className="w-8 h-8" />
-                Buat Iklan Lowongan Baru
+                {initialData ? <Edit3 className="w-8 h-8" /> : <PlusCircle className="w-8 h-8" />}
+                {initialData ? 'Edit Iklan Lowongan' : 'Buat Iklan Lowongan Baru'}
             </h2>
-            <p className="text-indigo-100 text-sm mt-2 ml-11 opacity-90">Lengkapi detail di bawah ini untuk mendapatkan kandidat yang paling sesuai.</p>
+            <p className="text-indigo-100 text-sm mt-2 ml-11 opacity-90">
+                {initialData ? 'Perbarui informasi lowongan Anda.' : 'Lengkapi detail di bawah ini untuk mendapatkan kandidat yang paling sesuai.'}
+            </p>
         </div>
         
         <form onSubmit={handleSubmit} className="p-8 space-y-10">
@@ -214,7 +229,7 @@ const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
                     Kualifikasi Kandidat
                 </h3>
                 
-                {/* NEW: EXPERIENCE MODE TOGGLE */}
+                {/* EXPERIENCE MODE TOGGLE */}
                 <div className="bg-gray-50 p-5 rounded-xl border border-indigo-100 mb-6">
                     <label className="block text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                         <Star className="w-4 h-4 text-orange-500" />
@@ -275,6 +290,7 @@ const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* ... (Rest of the inputs remain same, just showing structure for brevity) ... */}
                     <div>
                          <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
                          <select
@@ -442,7 +458,6 @@ const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
                             className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-3 border"
                             placeholder="Contoh: React JS, Adobe Photoshop, Komunikasi Baik, Bersedia Lembur..."
                         />
-                        <p className="text-xs text-gray-500 mt-1">Data ini digunakan AI untuk mencocokkan CV pelamar.</p>
                     </div>
                 </div>
             </section>
@@ -479,15 +494,17 @@ const PostJob: React.FC<PostJobProps> = ({ onPostJob, companyName }) => {
             <div className="pt-8 border-t border-gray-100 flex justify-end items-center gap-4">
                 <button
                     type="button"
-                    className="px-6 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                    onClick={handleSaveDraft}
+                    className="px-6 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none flex items-center gap-2"
                 >
+                    <Save className="w-4 h-4" />
                     Simpan Draft
                 </button>
                 <button
                     type="submit"
                     className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-lg shadow-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:-translate-y-0.5"
                 >
-                    Terbitkan Lowongan
+                    {initialData ? 'Simpan Perubahan' : 'Terbitkan Lowongan'}
                 </button>
             </div>
         </form>

@@ -9,9 +9,10 @@ interface CandidateDashboardProps {
   jobs: Job[];
   onStartInterview: (jobId: string) => void;
   onViewJobs: () => void;
+  onImproveCV?: () => void; // New prop
 }
 
-const CandidateDashboard: React.FC<CandidateDashboardProps> = ({ user, applications, jobs, onStartInterview, onViewJobs }) => {
+const CandidateDashboard: React.FC<CandidateDashboardProps> = ({ user, applications, jobs, onStartInterview, onViewJobs, onImproveCV }) => {
   // Filter applications for current user
   const myApplications = applications.filter(app => app.applicantId === user.id);
   
@@ -179,7 +180,10 @@ const CandidateDashboard: React.FC<CandidateDashboardProps> = ({ user, applicati
                           <p className="text-xs text-gray-500">Tambahkan 2 skill lagi untuk meningkatkan skor.</p>
                       </div>
                   </div>
-                  <button className="w-full py-2 text-sm text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-medium transition">
+                  <button 
+                    onClick={onImproveCV}
+                    className="w-full py-2 text-sm text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-medium transition"
+                  >
                       Perbaiki CV Sekarang
                   </button>
               </div>

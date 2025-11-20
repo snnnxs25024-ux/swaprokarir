@@ -22,6 +22,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, user, onLoginClic
 
   if (user?.role === 'candidate') {
     navItems.push(
+        { id: 'candidate-dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
         { id: 'ai-resume', label: 'Cek CV (AI)', icon: <Sparkles className="w-4 h-4" /> },
         { id: 'ai-chat', label: 'Konsultasi Karir', icon: <MessageSquare className="w-4 h-4" /> }
     );

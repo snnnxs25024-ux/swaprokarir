@@ -18,6 +18,30 @@ export interface Job {
   requirements: string[];
   postedAt: string;
   logoUrl: string;
+
+  // New Detailed Fields
+  category?: string; // IT, HR, Finance
+  minExperience?: string; // Fresh Grad, 1 Tahun, dll
+  
+  // Demographics & Filtering
+  ageMin?: number;
+  ageMax?: number;
+  gender?: 'Laki-laki' | 'Perempuan' | 'Bebas';
+  domicile?: string; // Kota wajib domisili
+
+  // Education
+  educationLevel?: 'SMA/SMK' | 'D3' | 'S1' | 'S2' | 'Lainnya';
+  major?: string; // Jurusan
+  minGpa?: number;
+
+  // Work Arrangement
+  workArrangement?: 'WFO' | 'WFH' | 'Hybrid' | 'Remote';
+  workingHours?: 'Normal (9-5)' | 'Shift';
+  
+  // Benefits & Admin
+  benefits?: string[];
+  quota?: number;
+  deadline?: string;
 }
 
 export interface AIAnalysisResult {
@@ -63,19 +87,14 @@ export interface Application {
   applicantName: string;
   applicantEmail: string;
   applicantAvatar: string;
-  
-  // New Fields for Detailed Profile
   age: number;
   location: string;
   phoneNumber: string;
   lastEducation: string;
-  experience: string; // Ringkasan pengalaman kerja (misal: "4 Tahun di Bidang Sales")
-
+  experience: string;
   appliedAt: string;
   status: ApplicationStatus;
-  aiMatchScore: number; // 0 - 100
-  aiSummary: string; // Ringkasan instan untuk recruiter
-  
-  // Interview Logic
-  invitationSent?: boolean; // Apakah link interview sudah dikirim?
+  aiMatchScore: number;
+  aiSummary: string;
+  invitationSent?: boolean;
 }

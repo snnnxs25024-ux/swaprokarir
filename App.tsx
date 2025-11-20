@@ -12,6 +12,7 @@ import ApplicantList from './components/ApplicantList';
 import LiveInterview from './components/LiveInterview';
 import InterviewCenter from './components/InterviewCenter';
 import SwapersInterview from './components/SwapersInterview';
+import CandidateDashboard from './components/CandidateDashboard';
 import { MOCK_JOBS, MOCK_APPLICATIONS, MOCK_TEMPLATES } from './services/mockData';
 import { Job, User, Application, ApplicationStatus, InterviewTemplate } from './types';
 import { Building, Briefcase, ArrowLeft, CheckCircle2, Lock } from 'lucide-react';
@@ -48,6 +49,10 @@ const App: React.FC = () => {
     // Jika Non-Recruiter mencoba akses Recruiter Pages
     if ((viewId === 'post-job' || viewId === 'recruiter-dashboard' || viewId === 'interview-center') && user?.role !== 'recruiter') {
         return; 
+    }
+    // Jika Candidate View
+    if (viewId === 'candidate-dashboard' && user?.role !== 'candidate') {
+        return;
     }
     setCurrentView(viewId);
   };
@@ -105,7 +110,8 @@ const App: React.FC = () => {
           };
           
           setApplications([newApp, ...applications]);
-          alert("Lamaran berhasil dikirim! Recruiter akan melihat profil Anda dengan AI Ranking.");
+          alert("Lamaran berhasil dikirim! Pantau status di Dashboard Anda.");
+          setCurrentView('candidate-dashboard');
       }
   };
 
@@ -261,6 +267,18 @@ const App: React.FC = () => {
             />
           );
 
+      case 'candidate-dashboard':
+          if (user?.role !== 'candidate') return null;
+          return (
+              <CandidateDashboard 
+                user={user}
+                applications={applications}
+                jobs={jobs}
+                onStartInterview={() => setCurrentView('ai-interview-room')}
+                onViewJobs={() => setCurrentView('jobs')}
+              />
+          );
+
       case 'interview-center':
           if (user?.role !== 'recruiter') return null;
           return (
@@ -287,7 +305,9 @@ const App: React.FC = () => {
                 ]}
                 onComplete={() => {
                     alert("Sesi Swapers selesai! Hasil telah dikirim ke Dashboard Rekruter.");
-                    setCurrentView('home');
+                    // If candidate, go back to dashboard
+                    if (user?.role === 'candidate') setCurrentView('candidate-dashboard');
+                    else setCurrentView('home');
                 }}
               />
           );
@@ -432,6 +452,8 @@ const App: React.FC = () => {
         onLoginSuccess={(u) => {
             setUser(u);
             setIsLoginModalOpen(false);
+            if (u.role === 'candidate') setCurrentView('candidate-dashboard');
+            else if (u.role === 'recruiter') setCurrentView('recruiter-dashboard');
         }}
       />
 

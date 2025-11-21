@@ -57,6 +57,32 @@ export interface ChatMessage {
   text: string;
 }
 
+// CV Builder Types
+export interface Education {
+  id: string;
+  institution: string;
+  degree: string;
+  major: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface WorkExperience {
+  id: string;
+  company: string;
+  position: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+}
+
+export interface SkillBadge {
+  id: string;
+  name: string;
+  level: 'Beginner' | 'Intermediate' | 'Advanced';
+  verified: boolean;
+}
+
 // RBAC Types
 export type UserRole = 'guest' | 'candidate' | 'recruiter';
 
@@ -67,7 +93,16 @@ export interface User {
   role: UserRole;
   avatarUrl?: string;
   companyName?: string; // Khusus recruiter
+
+  // Candidate Profile Data
+  phoneNumber?: string;
+  location?: string;
+  summary?: string;
+  education?: Education[];
+  experience?: WorkExperience[];
+  skills?: SkillBadge[];
 }
+
 
 // Interview Types
 export interface InterviewTemplate {

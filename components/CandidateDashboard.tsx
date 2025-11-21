@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { User, Application, Job } from '../types';
-import { Briefcase, Clock, CheckCircle, XCircle, Video, Sparkles, ArrowRight, Building } from 'lucide-react';
+import { Briefcase, Clock, CheckCircle, XCircle, Video, Sparkles, ArrowRight, Building, BookOpen, Star } from 'lucide-react';
 
 interface CandidateDashboardProps {
   user: User;
@@ -159,54 +159,57 @@ const CandidateDashboard: React.FC<CandidateDashboardProps> = ({ user, applicati
               )}
           </div>
 
-          {/* Sidebar: Recommendations & CV Health */}
+          {/* Sidebar */}
           <div className="space-y-6">
               {/* CV Health Widget */}
               <div className="bg-white rounded-xl p-6 border border-indigo-100 shadow-sm">
                   <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
                       <Sparkles className="w-5 h-5 text-indigo-600" />
-                      Kesehatan CV
+                      Kekuatan Profil
                   </h3>
                   <div className="flex items-center gap-4 mb-4">
                       <div className="relative w-16 h-16 flex items-center justify-center">
                           <svg className="w-full h-full transform -rotate-90">
                               <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-gray-200" />
-                              <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" strokeDasharray={175} strokeDashoffset={175 - (175 * 0.75)} className="text-indigo-600" />
+                              <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" strokeDasharray={175} strokeDashoffset={175 - (175 * 0.90)} className="text-green-500" />
                           </svg>
-                          <span className="absolute text-sm font-bold text-indigo-700">75%</span>
+                          <span className="absolute text-sm font-bold text-green-700">90%</span>
                       </div>
                       <div>
-                          <p className="text-sm font-medium text-gray-900">Cukup Baik</p>
-                          <p className="text-xs text-gray-500">Tambahkan 2 skill lagi untuk meningkatkan skor.</p>
+                          <p className="text-sm font-medium text-gray-900">Sangat Baik!</p>
+                          <p className="text-xs text-gray-500">Profil Anda sudah lengkap dan siap melamar.</p>
                       </div>
                   </div>
                   <button 
                     onClick={onImproveCV}
                     className="w-full py-2 text-sm text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-medium transition"
                   >
-                      Perbaiki CV Sekarang
+                      Perbarui Profil
                   </button>
               </div>
-
-              {/* Recommended Jobs */}
+              
+              {/* Learning Path Widget */}
               <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                  <h3 className="font-bold text-gray-900 mb-4">Rekomendasi Lowongan</h3>
+                  <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <BookOpen className="w-5 h-5 text-purple-600" />
+                      Rekomendasi Belajar
+                  </h3>
                   <div className="space-y-4">
-                      {recommendedJobs.map(job => (
-                          <div key={job.id} className="group border-b border-gray-100 pb-3 last:border-0 last:pb-0">
-                              <h4 className="font-semibold text-gray-800 group-hover:text-indigo-600 transition-colors truncate">{job.title}</h4>
-                              <p className="text-xs text-gray-500 mb-2">{job.company} • {job.location}</p>
-                              <div className="flex items-center justify-between">
-                                  <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{job.type}</span>
-                                  <button onClick={onViewJobs} className="text-indigo-600 hover:text-indigo-800">
-                                      <ArrowRight className="w-4 h-4" />
-                                  </button>
+                      <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r-lg">
+                          <p className="text-sm text-purple-800">
+                              <span className="font-bold">AI menyarankan:</span> Tingkatkan skill <span className="font-bold">UI/UX Design</span> untuk memperluas peluang karir Anda sebagai Frontend Developer.
+                          </p>
+                          <a href="#" className="text-xs text-purple-600 hover:underline font-medium mt-2 inline-block">Lihat kursus &rarr;</a>
+                      </div>
+                      <h4 className="text-sm font-semibold text-gray-700 pt-2">Lencana Skill Anda:</h4>
+                      <div className="flex flex-wrap gap-2">
+                          {user.skills?.map(skill => (
+                              <div key={skill.id} className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${skill.verified ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
+                                  <Star className={`w-3 h-3 ${skill.verified ? 'text-green-500' : 'text-gray-400'}`} />
+                                  {skill.name} <span className="text-gray-400">({skill.level})</span>
                               </div>
-                          </div>
-                      ))}
-                      {recommendedJobs.length === 0 && (
-                          <p className="text-sm text-gray-500 text-center py-4">Tidak ada rekomendasi baru saat ini.</p>
-                      )}
+                          ))}
+                      </div>
                   </div>
               </div>
           </div>

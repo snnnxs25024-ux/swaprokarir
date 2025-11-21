@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Briefcase, Sparkles, MessageSquare, User as UserIcon, Menu, X, LogOut, PlusCircle, LayoutDashboard, Video, Home, Search } from 'lucide-react';
 import { User } from '../types';
@@ -54,9 +53,11 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, user, onLoginClic
             {/* Logo Section */}
             <div className="flex items-center cursor-pointer group" onClick={() => handleNavClick('home')}>
               <div className="flex-shrink-0 flex items-center gap-2">
-                <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center shadow-indigo-200 shadow-md group-hover:bg-indigo-700 transition-colors">
-                  <span className="text-white font-bold text-xl">S</span>
-                </div>
+                <img 
+                  src="/logoswaprobumi.png?v=2" 
+                  alt="SWAPRO KARIR" 
+                  className="h-10 w-auto object-contain" 
+                />
                 <span className="text-xl font-bold text-gray-900 tracking-tight group-hover:text-indigo-600 transition-colors">SWAPRO KARIR</span>
               </div>
             </div>

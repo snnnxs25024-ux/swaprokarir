@@ -54,7 +54,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, user, onLoginClic
             <div className="flex items-center cursor-pointer group" onClick={() => handleNavClick('home')}>
               <div className="flex-shrink-0 flex items-center gap-2">
                 <img 
-                  src="/logoswaprobumi.png?v=2" 
+                  src="/swapro.png?v=2" 
                   alt="SWAPRO KARIR" 
                   className="h-10 w-auto object-contain" 
                 />

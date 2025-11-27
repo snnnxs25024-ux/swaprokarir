@@ -1,21 +1,24 @@
 
 import React from 'react';
 import { Job, Application } from '../types';
-import { Briefcase, Users, TrendingUp, Search, Eye, Edit } from 'lucide-react';
+import { Briefcase, Users, TrendingUp, Search, Eye, Edit, BarChart3, Archive } from 'lucide-react';
 
 interface RecruiterDashboardProps {
   jobs: Job[];
   applications: Application[];
   onViewApplicants: (jobId: string) => void;
   onPostJob: () => void;
-  onEditJob?: (job: Job) => void; // New Prop
+  onEditJob?: (job: Job) => void;
+  onViewAnalytics: () => void;
+  onViewTalentPool: () => void; // New prop for Talent Pool
 }
 
-const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ jobs, applications, onViewApplicants, onPostJob, onEditJob }) => {
+const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ jobs, applications, onViewApplicants, onPostJob, onEditJob, onViewAnalytics, onViewTalentPool }) => {
   // Calculate stats
   const totalJobs = jobs.length;
-  const totalApplicants = applications.length;
+  const totalApplicants = applications.filter(a => a.status !== 'talent-pool').length;
   const newApplicants = applications.filter(a => a.status === 'pending').length;
+  const talentPoolCount = applications.filter(a => a.status === 'talent-pool').length;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -24,16 +27,25 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ jobs, applicati
             <h1 className="text-2xl font-bold text-gray-900">Dashboard Rekrutmen</h1>
             <p className="text-gray-500 mt-1">Kelola lowongan dan pantau pelamar terbaik Anda.</p>
         </div>
-        <button 
-            onClick={onPostJob}
-            className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-            + Pasang Iklan Baru
-        </button>
+        <div className="flex items-center gap-4 mt-4 md:mt-0">
+            <button 
+                onClick={onViewAnalytics}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Lihat Analitik
+            </button>
+            <button 
+                onClick={onPostJob}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+                + Pasang Iklan Baru
+            </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200">
             <div className="p-5">
                 <div className="flex items-center">
@@ -79,6 +91,21 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ jobs, applicati
                 </div>
             </div>
         </div>
+         <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50" onClick={onViewTalentPool}>
+            <div className="p-5">
+                <div className="flex items-center">
+                    <div className="flex-shrink-0 bg-purple-100 rounded-md p-3">
+                        <Archive className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt className="text-sm font-medium text-gray-500 truncate">Talent Pool</dt>
+                            <dd className="text-2xl font-bold text-gray-900">{talentPoolCount}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
       </div>
 
       {/* Job List Table */}
@@ -108,7 +135,7 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ jobs, applicati
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                     {jobs.map((job) => {
-                        const jobApplicants = applications.filter(a => a.jobId === job.id).length;
+                        const jobApplicants = applications.filter(a => a.jobId === job.id && a.status !== 'talent-pool').length;
                         return (
                             <tr key={job.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="px-6 py-4 whitespace-nowrap">

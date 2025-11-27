@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Video, AlertCircle, Bot, Volume2, Loader2 } from 'lucide-react';
+import { Mic, Video, AlertCircle, Bot, Volume2, Loader2, Check, X, MicOff, RefreshCcw } from 'lucide-react';
 import { validateVoiceAnswer } from '../services/geminiService';
+import { QnA } from '../types';
 
 // Polyfill/Type definition for Web Speech API
 declare global {
@@ -14,270 +15,458 @@ declare global {
 interface SwapersInterviewProps {
   candidateName: string;
   questions: string[];
-  onComplete: () => void;
+  onComplete: (data: QnA[]) => void; // Updated signature to return data
 }
 
 const SwapersInterview: React.FC<SwapersInterviewProps> = ({ candidateName, questions, onComplete }) => {
-  // State Flow
-  const [currentStep, setCurrentStep] = useState<'permission' | 'intro' | 'question' | 'listening' | 'processing' | 'completed'>('permission');
+  // --- State Management ---
+  const [currentStep, setCurrentStep] = useState<'permission' | 'intro' | 'question' | 'listening' | 'processing' | 'speaking' | 'completed'>('permission');
   const [questionIndex, setQuestionIndex] = useState(0);
+  
+  // Data Collection
+  const [interviewData, setInterviewData] = useState<QnA[]>([]);
+
+  // Speech Data
   const [transcript, setTranscript] = useState('');
+  const [interimTranscript, setInterimTranscript] = useState(''); 
   const [swapersFeedback, setSwapersFeedback] = useState('');
   
-  // Hardware State
+  // Hardware & System State
+  const [isBrowserSupported, setIsBrowserSupported] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
   const [cameraError, setCameraError] = useState(false);
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
 
-  // Refs
+  // --- Refs ---
   const videoRef = useRef<HTMLVideoElement>(null);
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis>(window.speechSynthesis);
+  const transcriptContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Flag to prevent auto-restart when we intentionally stop
+  const isIntentionalStop = useRef(false);
 
-  // 1. Initialize Camera (Proctoring)
+  // 1. Initialization: Check Browser & Load Voices
   useEffect(() => {
+    if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) || !('speechSynthesis' in window)) {
+        setIsBrowserSupported(false);
+        return;
+    }
+
     const initCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, 
+            audio: true 
+        });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
         setHasPermission(true);
       } catch (err) {
-        console.error(err);
+        console.error("Camera Error:", err);
         setCameraError(true);
       }
     };
     initCamera();
 
+    const loadVoices = () => {
+         const voices = synthRef.current.getVoices();
+         if (voices.length > 0) {
+             setVoicesLoaded(true);
+         }
+    };
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
     return () => {
-       // Cleanup stream
        if (videoRef.current && videoRef.current.srcObject) {
            const stream = videoRef.current.srcObject as MediaStream;
            stream.getTracks().forEach(t => t.stop());
        }
-       // Cancel speech
-       synthRef.current.cancel();
+       if (synthRef.current) synthRef.current.cancel();
+       if (recognitionRef.current) {
+           isIntentionalStop.current = true;
+           recognitionRef.current.stop();
+       }
     };
   }, []);
 
-  // 2. Initialize Speech Recognition
+  // 2. Speech Recognition Setup
   useEffect(() => {
-    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.lang = 'id-ID'; // Focus on Indonesian
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
+    if (!isBrowserSupported) return;
 
-      recognition.onresult = (event: any) => {
-        const text = event.results[0][0].transcript;
-        setTranscript(text);
-        handleAnswerSubmission(text);
-      };
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.continuous = true; 
+    recognition.interimResults = true;
+    recognition.lang = 'id-ID'; 
 
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        // If error (e.g. no-speech), Swapers prompts again
-        speak("Maaf, saya tidak mendengar suara Anda. Mohon ulangi jawaban Anda.", () => {
-             startListening();
-        });
-      };
+    recognition.onresult = (event: any) => {
+      let finalTxt = '';
+      let interimTxt = '';
 
-      recognitionRef.current = recognition;
-    } else {
-      alert("Browser Anda tidak mendukung fitur Speech-to-Text. Mohon gunakan Chrome/Edge.");
-    }
-  }, [questionIndex]); // Re-init not strictly needed but safe
+      for (let i = 0; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTxt += event.results[i][0].transcript;
+        } else {
+          interimTxt += event.results[i][0].transcript;
+        }
+      }
+      
+      setTranscript(finalTxt);
+      setInterimTranscript(interimTxt);
+      
+      if (transcriptContainerRef.current) {
+          transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight;
+      }
+    };
 
-  // 3. Swapers Speaking Logic (TTS)
+    recognition.onerror = (event: any) => {
+      console.warn("Speech Recognition Error:", event.error);
+      if (event.error === 'not-allowed') {
+          alert("Akses mikrofon ditolak. Mohon izinkan di pengaturan browser.");
+      }
+    };
+
+    recognition.onend = () => {
+        if (currentStep === 'listening' && !isIntentionalStop.current) {
+            try {
+                recognition.start();
+            } catch(e) {
+                console.error("Failed to restart recognition", e);
+            }
+        }
+    };
+
+    recognitionRef.current = recognition;
+  }, [isBrowserSupported, currentStep]);
+
+  // 3. TTS Engine
   const speak = (text: string, onEndCallback?: () => void) => {
-    // Cancel previous speech
+    if (!text) {
+        if (onEndCallback) onEndCallback();
+        return;
+    }
+
+    isIntentionalStop.current = true;
+    if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch(e) {}
+    }
+
+    setCurrentStep('speaking');
+    setSwapersFeedback(text);
+    
     synthRef.current.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'id-ID';
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
+    utterance.rate = 1.1; 
     
-    // Try to find an Indonesian voice
     const voices = synthRef.current.getVoices();
-    const idVoice = voices.find(v => v.lang.includes('id'));
+    const idVoice = voices.find(v => v.name.includes('Google Bahasa Indonesia')) || voices.find(v => v.lang.includes('id'));
     if (idVoice) utterance.voice = idVoice;
 
     utterance.onend = () => {
-      if (onEndCallback) onEndCallback();
+      if (onEndCallback) {
+          setTimeout(onEndCallback, 300);
+      }
     };
 
-    setSwapersFeedback(text); // Show text on screen too
+    utterance.onerror = (e) => {
+        console.error("TTS Error", e);
+        if (onEndCallback) onEndCallback();
+    };
+
     synthRef.current.speak(utterance);
   };
 
-  // 4. Main Flow Control
+  // 4. Flow Control
   const startInterview = () => {
     setCurrentStep('intro');
-    speak(`Halo ${candidateName}, saya Swapers. Agen AI yang akan mewawancarai Anda hari ini. Pastikan Anda di ruangan yang tenang. Kita mulai ya?`, () => {
+    setTranscript('');
+    setInterimTranscript('');
+    
+    const greeting = `Halo ${candidateName}. Saya Swapers, asisten rekrutmen AI. Santai saja, jawab pertanyaan dengan jelas. Mari kita mulai.`;
+    speak(greeting, () => {
         nextQuestion();
     });
   };
 
   const nextQuestion = () => {
     if (questionIndex >= questions.length) {
-      setCurrentStep('completed');
-      speak("Terima kasih. Sesi wawancara telah selesai. Kami akan menganalisis jawaban Anda dan menghubungi segera.", () => {
-          setTimeout(onComplete, 2000);
-      });
+      finishInterview();
       return;
     }
 
-    setCurrentStep('question');
     const q = questions[questionIndex];
-    speak(`Pertanyaan nomor ${questionIndex + 1}. ${q}`, () => {
+    setCurrentStep('question');
+    speak(q, () => {
         startListening();
     });
   };
 
+  const finishInterview = () => {
+      setCurrentStep('completed');
+      speak("Terima kasih. Sesi interview selesai. Jawaban Anda telah kami rekam untuk direview oleh tim HR. Semoga sukses!", () => {
+          // Send back all collected data
+          onComplete(interviewData); 
+      });
+  };
+
   const startListening = () => {
     setCurrentStep('listening');
-    setTranscript('');
+    setTranscript(''); 
+    setInterimTranscript('');
+    
+    isIntentionalStop.current = false;
     try {
-        recognitionRef.current.start();
+        setTimeout(() => {
+            recognitionRef.current.start();
+        }, 100);
     } catch(e) {
-        // Handle if already started
-        console.log("Recognition already active");
+        console.log("Recognition likely already started");
     }
   };
 
-  const handleAnswerSubmission = async (text: string) => {
+  const handleManualSubmit = async () => {
+    const fullAnswer = (transcript + ' ' + interimTranscript).trim();
+
+    if (!fullAnswer || fullAnswer.length < 5) {
+        alert("Jawaban terlalu singkat atau tidak terdeteksi. Mohon ulangi.");
+        return;
+    }
+
+    isIntentionalStop.current = true;
+    if (recognitionRef.current) recognitionRef.current.stop();
+    
     setCurrentStep('processing');
     
-    // AI Logic: Validate the answer
-    const currentQ = questions[questionIndex];
-    const validation = await validateVoiceAnswer(text, currentQ);
+    await new Promise(r => setTimeout(r, 800));
 
-    if (validation.isValid) {
-        // Valid answer
-        speak(validation.feedback, () => {
+    try {
+        const currentQ = questions[questionIndex];
+        const validation = await validateVoiceAnswer(fullAnswer, currentQ);
+
+        if (validation.isValid) {
+            // Save Data
+            setInterviewData(prev => [
+                ...prev, 
+                { question: currentQ, answer: fullAnswer, aiFeedback: validation.feedback }
+            ]);
+
+            speak(validation.feedback, () => {
+                setQuestionIndex(prev => prev + 1);
+                setTimeout(() => nextQuestion(), 500); 
+            });
+        } else {
+            speak(validation.feedback, () => {
+                startListening(); 
+            });
+        }
+    } catch (err) {
+        console.error("AI Validation Error", err);
+        // Save what we have even if validation fails
+        setInterviewData(prev => [
+             ...prev, 
+             { question: questions[questionIndex], answer: fullAnswer, aiFeedback: "Error validation" }
+        ]);
+        speak("Terima kasih. Mari lanjut ke pertanyaan berikutnya.", () => {
             setQuestionIndex(prev => prev + 1);
-            // Use timeout to prevent state clash
-            setTimeout(() => nextQuestion(), 500); 
-        });
-    } else {
-        // Invalid (Noise/Unclear)
-        speak(validation.feedback, () => {
-            startListening(); // Retry same question
+            nextQuestion();
         });
     }
   };
 
-  // Render Permission Denied
+  // --- RENDER ---
+
+  if (!isBrowserSupported) {
+      return (
+        <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white p-6 text-center z-[100]">
+            <div className="max-w-md bg-gray-800 p-8 rounded-2xl border border-gray-700 shadow-2xl">
+                <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
+                <h3 className="text-xl font-bold mb-4">Browser Tidak Didukung</h3>
+                <p className="text-gray-300 mb-8 text-sm leading-relaxed">
+                    Fitur Wawancara Suara membutuhkan teknologi <strong>Web Speech API</strong>. 
+                    Mohon gunakan browser <strong>Google Chrome</strong> (Desktop/Android) atau Microsoft Edge terbaru.
+                </p>
+                <button onClick={() => onComplete([])} className="bg-white text-gray-900 px-6 py-3 rounded-full font-bold hover:bg-gray-200 transition w-full">
+                    Kembali ke Dashboard
+                </button>
+            </div>
+        </div>
+      );
+  }
+
   if (cameraError) {
       return (
-          <div className="flex items-center justify-center h-screen bg-gray-900 text-white p-8 text-center">
-              <div>
-                  <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                  <h2 className="text-2xl font-bold mb-2">Akses Kamera/Mic Ditolak</h2>
-                  <p>Sistem proctoring mewajibkan Anda mengaktifkan kamera dan mikrofon untuk melanjutkan wawancara ini.</p>
+          <div className="fixed inset-0 bg-gray-900 flex items-center justify-center text-white p-6 text-center z-[100]">
+              <div className="max-w-md bg-gray-800 p-8 rounded-2xl border border-gray-700 shadow-2xl">
+                  <Video className="w-16 h-16 text-red-500 mx-auto mb-6" />
+                  <h3 className="text-xl font-bold mb-4">Akses Kamera Ditolak</h3>
+                  <p className="text-gray-300 mb-8 text-sm leading-relaxed">
+                      Untuk keperluan validasi (Proctoring), kami membutuhkan akses ke Kamera dan Mikrofon Anda. 
+                      Silakan refresh halaman dan pilih "Allow/Izinkan".
+                  </p>
+                  <button onClick={() => window.location.reload()} className="bg-white text-gray-900 px-6 py-3 rounded-full font-bold hover:bg-gray-200 transition w-full flex items-center justify-center gap-2">
+                      <RefreshCcw className="w-4 h-4" /> Refresh Halaman
+                  </button>
               </div>
           </div>
       );
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-50 overflow-hidden">
+    <div className="fixed inset-0 bg-slate-950 flex flex-col z-[90] overflow-hidden">
         
-        {/* Header Proctoring Info */}
-        <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/40 px-4 py-2 rounded-full backdrop-blur-md z-10">
-            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-            <span className="text-white text-xs font-mono tracking-wider">REC • PROCTORING ACTIVE</span>
-        </div>
-
-        {/* Main Layout */}
-        <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 p-6 items-center">
+        {/* 1. HEADER */}
+        <div className="flex-none h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-4 sm:px-6 z-20">
+            <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+                    <span className="text-red-400 text-[10px] sm:text-xs font-bold tracking-wider uppercase">Live Proctoring</span>
+                </div>
+            </div>
             
-            {/* Left: Swapers Avatar (AI) */}
-            <div className="flex flex-col items-center justify-center space-y-8">
-                <div className={`relative w-48 h-48 rounded-full flex items-center justify-center border-4 border-indigo-500/30 shadow-[0_0_60px_-10px_rgba(99,102,241,0.3)] transition-all duration-500 ${currentStep === 'question' || currentStep === 'processing' ? 'scale-110 border-indigo-500' : ''}`}>
-                    <div className={`absolute inset-0 bg-indigo-600 rounded-full opacity-10 ${currentStep === 'question' ? 'animate-ping' : ''}`}></div>
-                    <div className="bg-gradient-to-b from-indigo-600 to-purple-700 w-40 h-40 rounded-full flex items-center justify-center relative z-10">
-                        <Bot className="w-20 h-20 text-white" />
-                    </div>
-                    
-                    {/* Status Indicator */}
-                    <div className="absolute -bottom-12 text-center w-full">
-                        <h3 className="text-white text-xl font-bold tracking-wide">SWAPERS AI</h3>
-                        <p className="text-indigo-300 text-sm font-medium animate-pulse">
-                            {currentStep === 'listening' ? 'Mendengarkan...' : 
-                             currentStep === 'processing' ? 'Menganalisis...' : 
-                             currentStep === 'question' || currentStep === 'intro' ? 'Berbicara...' : 'Standby'}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Transcript / Feedback Bubble */}
-                <div className="bg-gray-800/80 backdrop-blur border border-gray-700 p-6 rounded-2xl w-full max-w-md min-h-[140px] flex items-center justify-center text-center shadow-xl relative">
-                     {currentStep === 'listening' && (
-                         <div className="absolute top-2 right-2">
-                             <Mic className="w-4 h-4 text-red-400 animate-pulse" />
-                         </div>
-                     )}
-                     <p className="text-lg text-gray-100 leading-relaxed">
-                         {currentStep === 'listening' && transcript ? `"${transcript}"` : 
-                          currentStep === 'listening' ? "Silakan bicara sekarang..." :
-                          swapersFeedback || "Menunggu sistem..."}
-                     </p>
-                </div>
+            <div className="flex gap-1.5">
+                {questions.map((_, idx) => (
+                    <div 
+                        key={idx} 
+                        className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            idx === questionIndex ? 'bg-indigo-500 w-6' : 
+                            idx < questionIndex ? 'bg-green-500' : 'bg-slate-700'
+                        }`}
+                    />
+                ))}
             </div>
 
-            {/* Right: User Camera (Candidate) */}
-            <div className="relative aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-gray-700 group">
-                <video 
-                    ref={videoRef} 
-                    autoPlay 
-                    muted 
-                    playsInline 
-                    className="w-full h-full object-cover transform scale-x-[-1]"
-                />
-                
-                <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded text-white text-sm flex items-center gap-2 backdrop-blur-sm">
-                    <Video className="w-3 h-3 text-green-400" />
-                    {candidateName} (Anda)
-                </div>
-
-                {!hasPermission && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white">
-                        <Loader2 className="w-8 h-8 animate-spin" />
-                    </div>
-                )}
-
-                {/* Initial Overlay */}
-                {currentStep === 'permission' && hasPermission && (
-                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-center p-6 backdrop-blur-sm">
-                         <Bot className="w-12 h-12 text-indigo-400 mb-4" />
-                         <h2 className="text-2xl font-bold text-white mb-2">Siap Wawancara?</h2>
-                         <p className="text-gray-300 mb-6 max-w-xs">
-                             Sistem akan merekam suara dan video Anda. Pastikan koneksi internet stabil.
-                         </p>
-                         <button 
-                            onClick={startInterview}
-                            className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-bold shadow-lg shadow-indigo-500/30 transition transform hover:scale-105"
-                         >
-                             Mulai Sesi Bersama Swapers
-                         </button>
-                    </div>
-                )}
-            </div>
+            <button onClick={() => onComplete([])} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition">
+                <X className="w-6 h-6" />
+            </button>
         </div>
 
-        {/* Progress Bar */}
-        {currentStep !== 'permission' && (
-            <div className="absolute bottom-0 left-0 w-full h-2 bg-gray-800">
-                <div 
-                    className="h-full bg-indigo-500 transition-all duration-500 ease-out" 
-                    style={{ width: `${(questionIndex / questions.length) * 100}%` }}
-                ></div>
+        {/* 2. MAIN CONTENT */}
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+            
+            {/* AI AVATAR */}
+            <div className="flex-[1] lg:flex-[1] bg-gradient-to-b from-slate-900 to-slate-950 flex flex-col items-center justify-center p-6 relative overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-800">
+                <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none">
+                    <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl animate-pulse-slow"></div>
+                    <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-violet-600/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+                </div>
+                <div className={`relative z-10 transition-all duration-500 ${currentStep === 'speaking' ? 'scale-110' : 'scale-100'}`}>
+                    {(currentStep === 'speaking' || currentStep === 'intro' || currentStep === 'question') && (
+                        <>
+                            <div className="absolute inset-0 rounded-full border border-indigo-500/30 animate-ping-slow"></div>
+                            <div className="absolute -inset-4 rounded-full border border-violet-500/20 animate-ping-slower"></div>
+                        </>
+                    )}
+                    <div className="w-32 h-32 sm:w-40 sm:h-40 lg:w-56 lg:h-56 rounded-full bg-gradient-to-br from-indigo-600 via-purple-600 to-violet-800 flex items-center justify-center shadow-[0_0_40px_rgba(79,70,229,0.3)] border-4 border-slate-800 relative group">
+                        {currentStep === 'processing' ? (
+                            <Loader2 className="w-16 h-16 text-white/90 animate-spin" />
+                        ) : (
+                            <Bot className="w-16 h-16 sm:w-20 sm:h-20 lg:w-28 lg:h-28 text-white drop-shadow-lg" />
+                        )}
+                        <div className="absolute -bottom-2 bg-slate-900 px-3 py-1 rounded-full border border-slate-700 text-[10px] font-bold text-white uppercase tracking-widest shadow-sm">
+                             {currentStep === 'listening' ? 'Mendengarkan' : 'Berbicara'}
+                        </div>
+                    </div>
+                </div>
+                <div className="mt-8 w-full max-w-md relative z-10">
+                    <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 p-5 rounded-2xl text-center shadow-xl">
+                         <p className="text-slate-200 text-sm sm:text-base lg:text-lg font-medium leading-relaxed">
+                             {currentStep === 'listening' ? (
+                                 <span className="text-slate-400 italic animate-pulse">"Saya mendengarkan jawaban Anda..."</span>
+                             ) : (
+                                 swapersFeedback || "Menyiapkan pertanyaan..."
+                             )}
+                         </p>
+                    </div>
+                </div>
             </div>
-        )}
+
+            {/* USER AREA */}
+            <div className="flex-[1.2] lg:flex-[1.5] bg-black relative flex flex-col">
+                <div className="flex-1 relative overflow-hidden bg-slate-900">
+                    <video 
+                        ref={videoRef} 
+                        autoPlay 
+                        muted 
+                        playsInline 
+                        className="absolute inset-0 w-full h-full object-cover transform scale-x-[-1] opacity-90" 
+                    />
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-10 pointer-events-none"></div>
+                    <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                        <span className="text-white text-xs font-medium">{candidateName}</span>
+                    </div>
+                </div>
+
+                {/* CONTROL PANEL */}
+                <div className="bg-slate-900 border-t border-slate-800 flex flex-col">
+                    <div className="h-32 sm:h-40 overflow-y-auto p-4 border-b border-slate-800 bg-slate-950/50 custom-scrollbar" ref={transcriptContainerRef}>
+                        <div className="max-w-3xl mx-auto">
+                            {transcript || interimTranscript ? (
+                                <p className="text-base sm:text-lg text-white leading-relaxed">
+                                    {transcript} <span className="text-slate-500">{interimTranscript}</span>
+                                </p>
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-slate-600 gap-2">
+                                    <MicOff className="w-4 h-4" />
+                                    <span className="text-sm">Menunggu input suara...</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="p-4 sm:p-6 flex justify-center items-center gap-4 bg-slate-900">
+                        {currentStep === 'permission' ? (
+                             <button 
+                                onClick={startInterview}
+                                disabled={!hasPermission}
+                                className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-lg shadow-indigo-900/20 transition-all transform hover:scale-105 flex items-center gap-3"
+                              >
+                                  <Bot className="w-6 h-6" />
+                                  {hasPermission ? "Mulai Interview" : "Menunggu Kamera..."}
+                              </button>
+                        ) : currentStep === 'listening' ? (
+                             <div className="flex items-center gap-4 w-full max-w-md">
+                                 <button 
+                                     onClick={() => {
+                                        setTranscript('');
+                                        setInterimTranscript('');
+                                     }}
+                                     className="p-4 rounded-2xl border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                                     title="Reset Jawaban"
+                                 >
+                                     <RefreshCcw className="w-6 h-6" />
+                                 </button>
+                                 
+                                 <button 
+                                     onClick={handleManualSubmit}
+                                     className="flex-1 bg-green-600 hover:bg-green-500 text-white px-6 py-4 rounded-2xl font-bold text-lg shadow-[0_0_20px_rgba(22,163,74,0.3)] transition-all transform active:scale-95 flex items-center justify-center gap-3 animate-pulse-subtle"
+                                 >
+                                     <div className="p-1 bg-white/20 rounded-full">
+                                        <Check className="w-4 h-4" />
+                                     </div>
+                                     Selesai Bicara
+                                 </button>
+                             </div>
+                         ) : (
+                             <div className="text-slate-500 text-sm font-medium flex items-center gap-2 py-2">
+                                 {currentStep === 'processing' ? (
+                                     <><Loader2 className="w-4 h-4 animate-spin" /> Memproses jawaban...</>
+                                 ) : (
+                                     <><Volume2 className="w-4 h-4 animate-pulse" /> Jangan bicara dulu...</>
+                                 )}
+                             </div>
+                         )}
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
   );
 };

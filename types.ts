@@ -18,30 +18,41 @@ export interface Job {
   requirements: string[];
   postedAt: string;
   logoUrl: string;
-
+  
   // New Detailed Fields
-  category?: string; // IT, HR, Finance
-  minExperience?: string; // Fresh Grad, 1 Tahun, dll
+  category?: string; 
+  minExperience?: string; 
   
   // Demographics & Filtering
   ageMin?: number;
   ageMax?: number;
   gender?: 'Laki-laki' | 'Perempuan' | 'Bebas';
-  domicile?: string; // Kota wajib domisili
-
-  // Education
+  domicile?: string; 
   educationLevel?: 'SMA/SMK' | 'D3' | 'S1' | 'S2' | 'Lainnya';
-  major?: string; // Jurusan
+  major?: string; 
   minGpa?: number;
-
-  // Work Arrangement
   workArrangement?: 'WFO' | 'WFH' | 'Hybrid' | 'Remote';
   workingHours?: 'Normal (9-5)' | 'Shift';
-  
-  // Benefits & Admin
   benefits?: string[];
   quota?: number;
   deadline?: string;
+
+  // Helper for UI
+  isSaved?: boolean;
+}
+
+export interface SavedJob {
+    id: string;
+    jobId: string;
+    job: Job;
+    createdAt: string;
+}
+
+export interface JobAlert {
+    id: string;
+    keywords?: string;
+    location?: string;
+    createdAt: string;
 }
 
 export interface AIAnalysisResult {
@@ -83,8 +94,17 @@ export interface SkillBadge {
   verified: boolean;
 }
 
+export interface SocialLinks {
+  linkedin?: string;
+  github?: string;
+  portfolio?: string;
+  instagram?: string;
+  twitter?: string;
+  facebook?: string;
+}
+
 // RBAC Types
-export type UserRole = 'guest' | 'candidate' | 'recruiter';
+export type UserRole = 'guest' | 'candidate' | 'recruiter' | 'admin';
 
 export interface User {
   id: string;
@@ -95,12 +115,24 @@ export interface User {
   companyName?: string; // Khusus recruiter
 
   // Candidate Profile Data
+  age?: number;
   phoneNumber?: string;
-  location?: string;
+  location?: string; // Kota Domisili Singkat
   summary?: string;
+  
+  // New Personal Data
+  birthPlace?: string;
+  birthDate?: string; // YYYY-MM-DD
+  religion?: string;
+  address?: string; // Alamat Lengkap
+
+  socialLinks?: SocialLinks;
   education?: Education[];
   experience?: WorkExperience[];
   skills?: SkillBadge[];
+  
+  // Metadata
+  created_at?: string;
 }
 
 
@@ -112,8 +144,31 @@ export interface InterviewTemplate {
   createdAt: string;
 }
 
+// --- NEW: Interview Result Structure ---
+export interface QnA {
+  question: string;
+  answer: string;
+  aiFeedback?: string;
+}
+
+export interface InterviewSession {
+  completedAt: string;
+  overallScore: number;
+  sentiment: 'Positif' | 'Netral' | 'Negatif' | 'Gugup' | 'Percaya Diri';
+  summary: string;
+  transcript: QnA[];
+}
+
+// Collaboration Type
+export interface Note {
+  id: string;
+  author: string;
+  text: string;
+  createdAt: string;
+}
+
 // ATS Types
-export type ApplicationStatus = 'pending' | 'reviewed' | 'interview' | 'rejected' | 'hired';
+export type ApplicationStatus = 'pending' | 'reviewed' | 'interview' | 'rejected' | 'hired' | 'talent-pool';
 
 export interface Application {
   id: string;
@@ -132,4 +187,23 @@ export interface Application {
   aiMatchScore: number;
   aiSummary: string;
   invitationSent?: boolean;
+  internalNotes?: Note[]; 
+  interviewSession?: InterviewSession; 
+  
+  // For Timeline
+  jobTitle?: string;
+  companyName?: string;
+  interviewDate?: string; // Mock date for calendar integration
+}
+
+// Message Type
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  text: string;
+  timestamp: string;
+  isRead: boolean;
+  senderName?: string;
+  senderAvatar?: string;
 }

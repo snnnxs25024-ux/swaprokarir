@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { X, User, Building2, Loader2, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
-import { login } from '../services/authService';
+import { X, User, Building2, Loader2, Mail, Lock } from 'lucide-react';
+import { login, register } from '../services/authService';
 import { User as UserType } from '../types';
 
 interface LoginModalProps {
@@ -17,8 +17,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
   
   // Form State
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('kandidat@demo.com');
-  const [password, setPassword] = useState('dummy123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [error, setError] = useState('');
 
@@ -26,28 +26,12 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
 
   const handleTabChange = (tab: 'candidate' | 'recruiter') => {
     setActiveTab(tab);
-    // Auto-fill credential for easy demo if in login mode
-    if (mode === 'login') {
-        if (tab === 'candidate') setEmail('kandidat@demo.com');
-        else setEmail('rekruter@demo.com');
-    } else {
-        setEmail('');
-    }
     setError('');
   };
 
   const toggleMode = () => {
       setMode(mode === 'login' ? 'register' : 'login');
       setError('');
-      if (mode === 'login') {
-          // Switching to register, clear defaults
-          setEmail('');
-          setName('');
-      } else {
-          // Switching back to login, restore defaults
-          if (activeTab === 'candidate') setEmail('kandidat@demo.com');
-          else setEmail('rekruter@demo.com');
-      }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,31 +40,30 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
     setError('');
 
     try {
-      // Simulasi Register
       if (mode === 'register') {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Fake delay
-          
-          const newUser: UserType = {
-              id: `new-user-${Date.now()}`,
+          // Metadata for profiles table
+          const metadata = {
               name: name,
-              email: email,
               role: activeTab,
               avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
-              companyName: activeTab === 'recruiter' ? companyName : undefined
+              companyName: activeTab === 'recruiter' ? companyName : null
           };
           
-          onLoginSuccess(newUser);
-          onClose();
+          const newUser = await register(email, password, metadata);
+          alert("Registrasi berhasil! Silakan login.");
+          setMode('login');
+          // Optional: Auto login or wait for email confirmation depending on Supabase settings
       } else {
-          // Logic Login Eksisting
-          const user = await login(email);
+          // Real Login
+          const user = await login(email, password);
           if (user.role !== activeTab) {
-            throw new Error(`Akun ini bukan akun ${activeTab === 'candidate' ? 'Pencari Kerja' : 'Perusahaan'}`);
+            throw new Error(`Email ini terdaftar sebagai ${user.role}, bukan ${activeTab}`);
           }
           onLoginSuccess(user);
           onClose();
       }
     } catch (err: any) {
+      console.error(err);
       setError(err.message || "Gagal memproses permintaan.");
     } finally {
       setIsLoading(false);
@@ -187,9 +170,9 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    minLength={6}
                     />
                 </div>
-                {mode === 'login' && <p className="mt-1 text-xs text-gray-500">Password bebas (Demo Mode)</p>}
               </div>
 
               {error && (

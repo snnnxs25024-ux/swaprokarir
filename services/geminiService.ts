@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { AIAnalysisResult } from "../types";
+import { AIAnalysisResult, User } from "../types";
 
 // Helper to clean markdown json fences robustly
 const cleanJsonText = (text: string): string => {
@@ -161,4 +162,37 @@ export const validateVoiceAnswer = async (transcript: string, question: string):
     // Fallback to true to not block user flow on error
     return { isValid: true, feedback: "Baik, mari lanjut." };
   }
+};
+
+// --- NEW FUNCTION FOR PROFILE SUMMARY GENERATION ---
+export const generateProfileSummary = async (user: User): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    const experienceText = user.experience?.map(e => `${e.position} at ${e.company} (${e.startDate}-${e.endDate}): ${e.description}`).join('\n') || 'Tidak ada';
+    const skillsText = user.skills?.map(s => s.name).join(', ') || 'Tidak ada';
+    const educationText = user.education?.map(e => `${e.degree} ${e.major} di ${e.institution}`).join(', ') || 'Tidak ada';
+
+    const prompt = `
+        Buatkan "Professional Summary" (Ringkasan Profesional) untuk CV dalam Bahasa Indonesia.
+        Gunakan sudut pandang orang pertama ("Saya...").
+        Buatlah menarik, profesional, padat, dan menonjolkan keahlian. Maksimal 3 kalimat.
+
+        Data Kandidat:
+        Nama: ${user.name}
+        Pendidikan: ${educationText}
+        Skill: ${skillsText}
+        Pengalaman Kerja: 
+        ${experienceText}
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+        });
+        return response.text || "";
+    } catch (error) {
+        console.error("Summary generation error:", error);
+        throw new Error("Gagal membuat ringkasan.");
+    }
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -13,9 +14,15 @@ import InterviewCenter from './components/InterviewCenter';
 import SwapersInterview from './components/SwapersInterview';
 import CandidateDashboard from './components/CandidateDashboard';
 import CandidateProfile from './components/CandidateProfile';
+import RecruiterAnalytics from './components/RecruiterAnalytics';
+import TalentPool from './components/TalentPool';
+import Messages from './components/Messages';
+import AdminDashboard from './components/AdminDashboard'; // Import Admin Dashboard
 import { MOCK_JOBS, MOCK_APPLICATIONS, MOCK_TEMPLATES } from './services/mockData';
-import { Job, User, Application, ApplicationStatus, InterviewTemplate } from './types';
+import { getCurrentUser, logout } from './services/authService';
+import { Job, User, Application, ApplicationStatus, InterviewTemplate, QnA } from './types';
 import { Building, Briefcase, ArrowLeft, CheckCircle2, Lock, LogOut } from 'lucide-react';
+import { Logo } from './components/Logo';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState('home');
@@ -31,11 +38,33 @@ const App: React.FC = () => {
   // Auth State
   const [user, setUser] = useState<User | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Data State
   const [jobs, setJobs] = useState<Job[]>(MOCK_JOBS);
   const [applications, setApplications] = useState<Application[]>(MOCK_APPLICATIONS);
   const [interviewTemplates, setInterviewTemplates] = useState<InterviewTemplate[]>(MOCK_TEMPLATES);
+
+  // Initialize Auth Session
+  useEffect(() => {
+      const initAuth = async () => {
+          try {
+              const currentUser = await getCurrentUser();
+              if (currentUser) {
+                  setUser(currentUser);
+                  // Redirect ke dashboard yang sesuai jika user ada
+                  if (currentUser.role === 'candidate') setCurrentView('candidate-dashboard');
+                  else if (currentUser.role === 'recruiter') setCurrentView('recruiter-dashboard');
+                  else if (currentUser.role === 'admin') setCurrentView('admin-dashboard'); // Redirect Admin
+              }
+          } catch (e) {
+              console.error("Error checking auth:", e);
+          } finally {
+              setAuthLoading(false);
+          }
+      };
+      initAuth();
+  }, []);
 
   // Reset scroll to top when view changes
   useEffect(() => {
@@ -50,11 +79,16 @@ const App: React.FC = () => {
         return;
     }
     // Jika Non-Recruiter mencoba akses Recruiter Pages
-    if ((viewId === 'post-job' || viewId === 'recruiter-dashboard' || viewId === 'interview-center') && user?.role !== 'recruiter') {
-        return; 
+    if ((viewId === 'post-job' || viewId === 'recruiter-dashboard' || viewId === 'interview-center' || viewId === 'talent-pool') && user?.role !== 'recruiter') {
+        // Admin still might want to see these but usually separate view
+        if (user?.role !== 'admin') return; 
     }
     // Jika Candidate View
     if ((viewId === 'candidate-dashboard' || viewId === 'profile') && user?.role !== 'candidate') {
+        return;
+    }
+    // Jika Admin Pages
+    if ((viewId === 'admin-dashboard' || viewId === 'admin-users' || viewId === 'admin-jobs') && user?.role !== 'admin') {
         return;
     }
     
@@ -64,6 +98,13 @@ const App: React.FC = () => {
     setCurrentView(viewId);
   };
 
+  const handleLogout = async () => {
+      await logout();
+      setUser(null);
+      setCurrentView('home');
+  };
+
+  // ... (Sisa fungsi handleJobClick, handleStartInterview, dll sama seperti sebelumnya)
   const handleJobClick = (job: Job) => {
     setSelectedJob(job);
     if (user?.role === 'recruiter') {
@@ -84,8 +125,8 @@ const App: React.FC = () => {
           setIsLoginModalOpen(true);
           return;
       }
-      if (user.role === 'recruiter') {
-          alert("Akun perusahaan tidak dapat melamar pekerjaan.");
+      if (user.role === 'recruiter' || user.role === 'admin') {
+          alert("Akun perusahaan/admin tidak dapat melamar pekerjaan.");
           return;
       }
       
@@ -105,11 +146,11 @@ const App: React.FC = () => {
               applicantName: user.name,
               applicantEmail: user.email,
               applicantAvatar: user.avatarUrl || '',
-              age: 25, // Default value for demo
-              location: 'Indonesia', // Default value for demo
-              phoneNumber: '-', // Default value for demo
-              lastEducation: 'S1 - Umum', // Default value for demo
-              experience: 'Fresh Graduate', // Default value for demo
+              age: user.age || 0,
+              location: user.location || '-',
+              phoneNumber: user.phoneNumber || '-',
+              lastEducation: user.education?.[0]?.degree || '-',
+              experience: user.experience?.[0]?.position || 'Fresh Graduate',
               appliedAt: 'Baru saja',
               status: 'pending',
               aiMatchScore: Math.floor(Math.random() * (98 - 60) + 60), // Random score for demo
@@ -155,9 +196,41 @@ const App: React.FC = () => {
 
   const handleSendInterviewInvite = (appId: string, templateId: string) => {
       // Simulate sending email logic
-      setApplications(apps => apps.map(a => a.id === appId ? { ...a, invitationSent: true } : a));
+      setApplications(apps => apps.map(a => a.id === appId ? { ...a, status: 'interview', invitationSent: true } : a));
       const template = interviewTemplates.find(t => t.id === templateId);
       alert(`Undangan Interview (Email) telah dikirim ke kandidat dengan lampiran soal: ${template?.title}`);
+  };
+  
+  const handleAIInterviewComplete = (results: QnA[]) => {
+      // Cari aplikasi milik user yang sedang login yang statusnya 'interview'
+      // Untuk demo, kita ambil aplikasi terakhir dari user ini yang statusnya interview atau pending
+      if (!user) return;
+
+      setApplications(prev => {
+          // Find target application (simplification: logic finds the first relevant app)
+          const targetAppIndex = prev.findIndex(app => app.applicantId === user.id && (app.status === 'interview' || app.status === 'pending'));
+          
+          if (targetAppIndex !== -1) {
+              const updatedApps = [...prev];
+              updatedApps[targetAppIndex] = {
+                  ...updatedApps[targetAppIndex],
+                  status: 'interview', // Ensure status is interview
+                  interviewSession: {
+                      completedAt: 'Baru saja',
+                      overallScore: 85, // Mock Score
+                      sentiment: 'Percaya Diri', // Mock Sentiment
+                      summary: 'Kandidat menjawab dengan lancar dan poin-poin yang jelas.',
+                      transcript: results
+                  }
+              };
+              return updatedApps;
+          }
+          return prev;
+      });
+
+      alert("Sesi Swapers selesai! Hasil telah dikirim ke Dashboard Rekruter.");
+      if (user?.role === 'candidate') setCurrentView('candidate-dashboard');
+      else setCurrentView('home');
   };
 
   const renderContent = () => {
@@ -196,8 +269,8 @@ const App: React.FC = () => {
                 ))}
               </div>
 
-              {/* CTA Section - Hanya muncul jika user bukan Recruiter */}
-              {user?.role !== 'recruiter' && (
+              {/* CTA Section - Hanya muncul jika user bukan Recruiter/Admin */}
+              {(!user || user?.role === 'candidate') && (
                 <div className="mt-24 bg-indigo-900 rounded-3xl shadow-2xl overflow-hidden">
                     <div className="grid grid-cols-1 lg:grid-cols-2">
                     <div className="p-8 sm:p-12 flex flex-col justify-center relative z-10">
@@ -242,6 +315,7 @@ const App: React.FC = () => {
             </div>
           </>
         );
+      // ... (Rest of the cases remain the same, just referencing handleLogout in profile/navbar)
       case 'jobs':
         return (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -257,10 +331,10 @@ const App: React.FC = () => {
           </div>
         );
       case 'ai-resume':
-        if (!user || user.role === 'recruiter') return null; 
+        if (!user || user.role !== 'candidate') return null; 
         return <AIResumeReview />;
       case 'ai-chat':
-        if (!user || user.role === 'recruiter') return null;
+        if (!user || user.role !== 'candidate') return null;
         return (
             <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
                 <div className="text-center mb-8">
@@ -279,7 +353,11 @@ const App: React.FC = () => {
                 initialData={editingJob}
             />
           );
-      
+      case 'admin-dashboard':
+      case 'admin-users':
+      case 'admin-jobs':
+          if (user?.role !== 'admin') return null;
+          return <AdminDashboard />;
       case 'recruiter-dashboard':
           if (user?.role !== 'recruiter') return null;
           return (
@@ -298,9 +376,32 @@ const App: React.FC = () => {
                     }
                 }}
                 onEditJob={handleEditJob}
+                onViewAnalytics={() => setCurrentView('recruiter-analytics')}
+                onViewTalentPool={() => setCurrentView('talent-pool')}
             />
           );
-
+      case 'recruiter-analytics':
+          if (user?.role !== 'recruiter') return null;
+          return <RecruiterAnalytics applications={applications} jobs={jobs} onBack={() => setCurrentView('recruiter-dashboard')} />;
+      case 'talent-pool':
+          if (user?.role !== 'recruiter') return null;
+          return (
+            <TalentPool 
+              applications={applications} 
+              jobs={jobs} 
+              onBack={() => setCurrentView('recruiter-dashboard')} 
+              onViewApplicant={(app) => {
+                    const job = jobs.find(j => j.id === app.jobId);
+                    if (job) {
+                        setSelectedJob(job);
+                        setCurrentView('applicant-list'); 
+                    }
+              }}
+            />
+          );
+      case 'messages':
+          if (!user) return null;
+          return <Messages user={user} />;
       case 'candidate-dashboard':
           if (user?.role !== 'candidate') return null;
           return (
@@ -311,19 +412,27 @@ const App: React.FC = () => {
                 onStartInterview={() => setCurrentView('ai-interview-room')}
                 onViewJobs={() => setCurrentView('jobs')}
                 onImproveCV={() => setCurrentView('ai-resume')}
+                onVerifySkill={(skillId) => {
+                    if (user) {
+                        const updatedUser = { 
+                            ...user, 
+                            skills: user.skills?.map(s => s.id === skillId ? { ...s, verified: true } : s) 
+                        };
+                        setUser(updatedUser);
+                        alert("Skill Anda berhasil diverifikasi!");
+                    }
+                }}
               />
           );
-      
       case 'profile':
           if (user?.role !== 'candidate') return null;
           return (
             <CandidateProfile 
                 user={user}
                 onUpdateUser={(updatedUser) => setUser(updatedUser)}
-                onLogout={() => { setUser(null); setCurrentView('home'); }}
+                onLogout={handleLogout}
             />
           );
-
       case 'interview-center':
           if (user?.role !== 'recruiter') return null;
           return (
@@ -336,10 +445,7 @@ const App: React.FC = () => {
                 onStartLiveSession={handleStartInterview}
               />
           );
-      
-      // --- NEW ROUTE FOR SWAPERS INTERVIEW ---
       case 'ai-interview-room':
-          // This route is typically for candidates, but accessible for demo/preview from recruiter panel too
           return (
               <SwapersInterview 
                 candidateName={user?.name || 'Kandidat'}
@@ -348,27 +454,40 @@ const App: React.FC = () => {
                     "Mengapa Anda tertarik melamar di posisi ini?",
                     "Apa pencapaian terbesar Anda sejauh ini?"
                 ]}
-                onComplete={() => {
-                    alert("Sesi Swapers selesai! Hasil telah dikirim ke Dashboard Rekruter.");
-                    // If candidate, go back to dashboard
-                    if (user?.role === 'candidate') setCurrentView('candidate-dashboard');
-                    else setCurrentView('home');
-                }}
+                onComplete={handleAIInterviewComplete}
               />
           );
-
       case 'applicant-list':
           if (user?.role !== 'recruiter' || !selectedJob) return null;
           return (
               <ApplicantList 
                 job={selectedJob}
                 applications={applications.filter(a => a.jobId === selectedJob.id)}
+                recruiterName={user?.name || 'Recruiter'}
                 onBack={() => setCurrentView('recruiter-dashboard')}
                 onUpdateStatus={handleUpdateApplicationStatus}
                 onStartInterview={handleStartInterview}
+                onAddNewNote={(appId, noteText) => {
+                    setApplications(prev => prev.map(app => {
+                        if (app.id === appId) {
+                            return {
+                                ...app,
+                                internalNotes: [...(app.internalNotes || []), {
+                                    id: `note-${Date.now()}`,
+                                    author: user?.name || 'Recruiter',
+                                    text: noteText,
+                                    createdAt: 'Baru saja'
+                                }]
+                            };
+                        }
+                        return app;
+                    }));
+                }}
+                onBulkUpdateStatus={(appIds, status) => {
+                    setApplications(prev => prev.map(app => appIds.includes(app.id) ? { ...app, status } : app));
+                }}
               />
           );
-
       case 'job-detail':
         return selectedJob ? (
             <div className="max-w-5xl mx-auto px-4 py-10 sm:px-6 lg:px-8">
@@ -475,6 +594,14 @@ const App: React.FC = () => {
     }
   };
 
+  if (authLoading) {
+      return (
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          </div>
+      );
+  }
+
   return (
     <div className={`min-h-screen bg-gray-50 font-sans text-gray-900 selection:bg-indigo-100 selection:text-indigo-900 ${user?.role === 'candidate' ? 'pb-24 md:pb-0' : ''}`}>
       {!isInterviewActive && currentView !== 'ai-interview-room' && (
@@ -483,7 +610,7 @@ const App: React.FC = () => {
             setView={handleSetView} 
             user={user}
             onLoginClick={() => setIsLoginModalOpen(true)}
-            onLogoutClick={() => { setUser(null); setCurrentView('home'); }}
+            onLogoutClick={handleLogout}
           />
       )}
       
@@ -499,6 +626,7 @@ const App: React.FC = () => {
             setIsLoginModalOpen(false);
             if (u.role === 'candidate') setCurrentView('candidate-dashboard');
             else if (u.role === 'recruiter') setCurrentView('recruiter-dashboard');
+            else if (u.role === 'admin') setCurrentView('admin-dashboard');
         }}
       />
 
@@ -508,11 +636,13 @@ const App: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
                       <div className="col-span-1 md:col-span-1">
                           <div className="flex items-center gap-2 mb-4">
-                            <img src="/logoswaprobumi.png?v=2" alt="SWAPRO KARIR" className="h-8 w-auto object-contain" />
+                            <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
+                                <Logo className="w-5 h-5" />
+                            </div>
                             <span className="text-xl font-bold text-gray-900">SWAPRO KARIR</span>
                           </div>
                           <p className="text-gray-500 text-sm leading-relaxed">
-                              Platform pencarian kerja masa depan yang didukung oleh kecerdasan buatan Google Gemini untuk membantu Anda mencapai karir impian dengan lebih cerdas dan cepat.
+                              Platform pencarian kerja masa depan yang didukung oleh kecerdasan Google Gemini untuk membantu Anda mencapai karir impian dengan lebih cerdas dan cepat.
                           </p>
                       </div>
                       <div>

@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
-import { Briefcase, Sparkles, MessageSquare, User as UserIcon, Menu, X, LogOut, PlusCircle, LayoutDashboard, Video, Home, Search } from 'lucide-react';
+import { Briefcase, Sparkles, MessageSquare, User as UserIcon, Menu, X, LogOut, PlusCircle, LayoutDashboard, Video, Home, Search, Archive, MessageCircle, ShieldCheck, Users } from 'lucide-react';
 import { User } from '../types';
+import { Logo } from './Logo';
 
 interface NavbarProps {
   currentView: string;
@@ -13,36 +15,60 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ currentView, setView, user, onLoginClick, onLogoutClick }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isCandidate = user?.role === 'candidate';
+  const isRecruiter = user?.role === 'recruiter';
+  const isAdmin = user?.role === 'admin';
 
-  // Define Nav Items based on Roles (Desktop & Standard Mobile Menu)
-  let navItems = [
-    { id: 'home', label: 'Beranda', icon: <Briefcase className="w-4 h-4" /> },
-    { id: 'jobs', label: 'Lowongan', icon: <Briefcase className="w-4 h-4" /> },
-  ];
+  // 1. DEFINE MENUS STRICTLY BASED ON ROLE
+  let navItems = [];
 
-  if (user?.role === 'candidate') {
-    navItems.push(
-        { id: 'candidate-dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
-        { id: 'ai-resume', label: 'Cek CV (AI)', icon: <Sparkles className="w-4 h-4" /> },
-        { id: 'ai-chat', label: 'Konsultasi Karir', icon: <MessageSquare className="w-4 h-4" /> }
-    );
-  } else if (user?.role === 'recruiter') {
-      navItems.push(
+  if (isAdmin) {
+      // --- MENU KHUSUS ADMIN ---
+      navItems = [
+        { id: 'admin-dashboard', label: 'Admin Dashboard', icon: <ShieldCheck className="w-4 h-4" /> },
+        { id: 'admin-users', label: 'Kelola User', icon: <Users className="w-4 h-4" /> },
+        { id: 'admin-jobs', label: 'Moderasi Lowongan', icon: <Briefcase className="w-4 h-4" /> },
+      ];
+  } else if (isRecruiter) {
+      // --- MENU KHUSUS REKRUTER ---
+      navItems = [
           { id: 'recruiter-dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
+          { id: 'messages', label: 'Pesan', icon: <MessageCircle className="w-4 h-4" /> },
+          { id: 'post-job', label: 'Pasang Iklan', icon: <PlusCircle className="w-4 h-4" /> },
           { id: 'interview-center', label: 'Interview Center', icon: <Video className="w-4 h-4" /> },
-          { id: 'post-job', label: 'Pasang Iklan', icon: <PlusCircle className="w-4 h-4" /> }
-      );
+          { id: 'talent-pool', label: 'Talent Pool', icon: <Archive className="w-4 h-4" /> },
+      ];
   } else {
-      // Guest view - Show teasers that will trigger login
-      navItems.push(
-        { id: 'ai-resume', label: 'Cek CV (AI)', icon: <Sparkles className="w-4 h-4" /> },
-        { id: 'ai-chat', label: 'Konsultasi Karir', icon: <MessageSquare className="w-4 h-4" /> }
-      );
+      // --- MENU KANDIDAT & GUEST ---
+      // Guest juga melihat menu ini untuk browsing
+      navItems = [
+        { id: 'home', label: 'Beranda', icon: <Briefcase className="w-4 h-4" /> },
+        { id: 'jobs', label: 'Lowongan', icon: <Search className="w-4 h-4" /> },
+      ];
+
+      if (isCandidate) {
+        navItems.push(
+            { id: 'candidate-dashboard', label: 'Lamaran Saya', icon: <LayoutDashboard className="w-4 h-4" /> },
+            { id: 'ai-resume', label: 'Cek CV', icon: <Sparkles className="w-4 h-4" /> },
+            { id: 'ai-chat', label: 'Konsul Karir', icon: <MessageSquare className="w-4 h-4" /> }
+        );
+      } else {
+         // Guest Extras
+         navItems.push(
+            { id: 'ai-resume', label: 'Cek CV (AI)', icon: <Sparkles className="w-4 h-4" /> },
+            { id: 'ai-chat', label: 'Konsultasi Karir', icon: <MessageSquare className="w-4 h-4" /> }
+         );
+      }
   }
 
   const handleNavClick = (viewId: string) => {
     setView(viewId);
     setIsMobileMenuOpen(false);
+  };
+
+  const getRoleBadge = () => {
+    if (isAdmin) return <span className="px-2 py-0.5 bg-red-100 text-red-800 text-[10px] font-bold rounded-full uppercase tracking-wider border border-red-200">Admin</span>;
+    if (isRecruiter) return <span className="text-xs text-gray-500 capitalize">Rekruter</span>;
+    return <span className="text-xs text-gray-500 capitalize">Kandidat</span>;
   };
 
   return (
@@ -51,13 +77,11 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, user, onLoginClic
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             {/* Logo Section */}
-            <div className="flex items-center cursor-pointer group" onClick={() => handleNavClick('home')}>
+            <div className="flex items-center cursor-pointer group" onClick={() => handleNavClick(isRecruiter ? 'recruiter-dashboard' : isAdmin ? 'admin-dashboard' : 'home')}>
               <div className="flex-shrink-0 flex items-center gap-2">
-                <img 
-                  src="/swapro.png?v=2" 
-                  alt="SWAPRO KARIR" 
-                  className="h-10 w-auto object-contain" 
-                />
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-sm group-hover:shadow-md transition-all ${isAdmin ? 'bg-red-600' : 'bg-gradient-to-br from-indigo-600 to-indigo-700'}`}>
+                    <Logo className="w-6 h-6" />
+                </div>
                 <span className="text-xl font-bold text-gray-900 tracking-tight group-hover:text-indigo-600 transition-colors">SWAPRO KARIR</span>
               </div>
             </div>
@@ -70,7 +94,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, user, onLoginClic
                   onClick={() => setView(item.id)}
                   className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 gap-2
                     ${currentView === item.id 
-                      ? 'bg-indigo-50 text-indigo-700' 
+                      ? (isAdmin ? 'bg-red-50 text-red-700' : 'bg-indigo-50 text-indigo-700') 
                       : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                 >
@@ -88,8 +112,10 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, user, onLoginClic
                         <div className="flex items-center gap-2">
                             <img src={user.avatarUrl} alt="Profile" className="w-8 h-8 rounded-full border border-gray-200" />
                             <div className="flex flex-col">
-                                <span className="text-sm font-semibold text-gray-900 leading-none">{user.name}</span>
-                                <span className="text-xs text-gray-500 capitalize">{user.role === 'recruiter' ? 'Rekruter' : 'Kandidat'}</span>
+                                <span className="text-sm font-semibold text-gray-900 leading-none flex items-center gap-2">
+                                    {user.name}
+                                </span>
+                                {getRoleBadge()}
                             </div>
                         </div>
                         <div className="h-6 w-px bg-gray-300 mx-1"></div>
@@ -116,8 +142,8 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, user, onLoginClic
                 )}
               </div>
 
-               {/* Mobile menu button - Hide for Candidates as they have Bottom Nav */}
-              {!isCandidate && (
+               {/* Mobile menu button - Hide for Candidates as they have Bottom Nav (Optional: Can be kept for Profile access) */}
+              {(!isCandidate || isRecruiter || isAdmin) && (
                 <div className="flex items-center md:hidden">
                   <button
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -136,8 +162,8 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, user, onLoginClic
           </div>
         </div>
         
-        {/* Mobile Menu Dropdown (Only for Non-Candidates or Desktop resizing) */}
-        {!isCandidate && isMobileMenuOpen && (
+        {/* Mobile Menu Dropdown */}
+        {isMobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-gray-200 shadow-lg absolute w-full left-0 z-40">
             <div className="pt-2 pb-3 space-y-1 px-2">
               {navItems.map((item) => (
@@ -221,7 +247,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, user, onLoginClic
                 <span className="text-[10px] font-medium">Loker</span>
             </button>
 
-            {/* DOCKED FAB (Floating Action Button) */}
+            {/* DOCKED FAB */}
             <div className="relative -top-6">
                 <button
                     onClick={() => setView('candidate-dashboard')}

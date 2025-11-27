@@ -1,7 +1,8 @@
 
-import React from 'react';
-import { MapPin, Clock, DollarSign, Building, Briefcase, Edit } from 'lucide-react';
+import React, { useState } from 'react';
+import { MapPin, Clock, DollarSign, Building, Edit, Bookmark } from 'lucide-react';
 import { Job, User } from '../types';
+import { toggleSaveJob } from '../services/jobService';
 
 interface JobCardProps {
   job: Job;
@@ -10,20 +11,46 @@ interface JobCardProps {
 }
 
 const JobCard: React.FC<JobCardProps> = ({ job, onApply, user }) => {
+  const [isSaved, setIsSaved] = useState(job.isSaved || false);
   const isRecruiter = user?.role === 'recruiter';
-  // Jika recruiter melihat ini, anggap ini job dia (simplifikasi demo)
-  // Di app nyata, cek if job.company === user.companyName
+
+  const handleBookmark = async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!user) return alert("Silakan login untuk menyimpan lowongan.");
+      
+      // Optimistic update
+      const newState = !isSaved;
+      setIsSaved(newState);
+
+      try {
+          await toggleSaveJob(user.id, job.id);
+      } catch (err) {
+          setIsSaved(!newState); // Revert if failed
+          console.error(err);
+      }
+  };
 
   return (
-    <div className="bg-white flex flex-col h-full rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-indigo-200 group">
+    <div className="bg-white flex flex-col h-full rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-indigo-200 group relative">
+      
+      {/* Bookmark Button (Candidate Only) */}
+      {!isRecruiter && (
+          <button 
+            onClick={handleBookmark}
+            className={`absolute top-4 right-4 p-2 rounded-full transition-colors z-10 ${isSaved ? 'bg-indigo-50 text-indigo-600' : 'bg-transparent text-gray-400 hover:bg-gray-100'}`}
+          >
+             <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
+          </button>
+      )}
+
       <div className="p-6 flex-1">
         <div className="flex items-start justify-between">
           <div className="flex gap-4">
             <div className="flex-shrink-0">
-              <img className="h-12 w-12 rounded-lg object-cover border border-gray-100" src={job.logoUrl} alt={job.company} />
+              <img className="h-12 w-12 rounded-lg object-cover border border-gray-100" src={job.logoUrl || 'https://via.placeholder.com/50'} alt={job.company} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900 line-clamp-1 group-hover:text-indigo-600 transition-colors">{job.title}</h3>
+              <h3 className="text-lg font-bold text-gray-900 line-clamp-1 group-hover:text-indigo-600 transition-colors pr-8">{job.title}</h3>
               <div className="flex items-center text-sm text-indigo-600 font-medium mt-1">
                 <Building className="flex-shrink-0 mr-1.5 h-4 w-4" />
                 <p>{job.company}</p>
@@ -39,7 +66,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onApply, user }) => {
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <DollarSign className="flex-shrink-0 mr-2 h-4 w-4 text-gray-400" />
-            {job.salaryRange}
+            {job.salaryRange || 'Gaji Kompetitif'}
           </div>
            <div className="flex items-center text-sm text-gray-600">
             <Clock className="flex-shrink-0 mr-2 h-4 w-4 text-gray-400" />
@@ -49,16 +76,11 @@ const JobCard: React.FC<JobCardProps> = ({ job, onApply, user }) => {
 
         <div className="mt-5 pt-4 border-t border-gray-50">
           <div className="flex flex-wrap gap-2">
-            {job.requirements.slice(0, 3).map((req, index) => (
+            {job.requirements && job.requirements.slice(0, 3).map((req, index) => (
               <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
                 {req}
               </span>
             ))}
-            {job.requirements.length > 3 && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-50 text-gray-400">
-                +{job.requirements.length - 3}
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -84,7 +106,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onApply, user }) => {
                 onClick={() => onApply(job)}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform active:scale-95"
             >
-                Lamar Cepat
+                Lamar Sekarang
             </button>
         )}
       </div>

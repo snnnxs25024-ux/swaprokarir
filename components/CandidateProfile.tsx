@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Education, WorkExperience, SkillBadge } from '../types';
-import { User as UserIcon, FileText, Settings, Save, LogOut, MapPin, Phone, Plus, Trash2, GraduationCap, Briefcase, Linkedin, Github, Globe, Sparkles, Loader2, ChevronDown, ChevronUp, X, Camera, Calendar, Facebook, Twitter, Instagram } from 'lucide-react';
+import { User, Education, WorkExperience, SkillBadge, SocialLinks } from '../types';
+import { User as UserIcon, FileText, Settings, Save, LogOut, MapPin, Phone, Plus, Trash2, Linkedin, Github, Globe, Sparkles, Loader2, ChevronDown, ChevronUp, X, Camera, Calendar, Facebook, Twitter, Instagram } from 'lucide-react';
 import { generateProfileSummary } from '../services/geminiService';
 import { updateProfile, uploadAvatar } from '../services/authService';
 
@@ -48,11 +48,11 @@ const CandidateProfile: React.FC<CandidateProfileProps> = ({ user, onUpdateUser,
     setFormData(prev => ({...prev, [field]: value}));
   };
 
-  const handleSocialChange = (field: keyof typeof formData.socialLinks, value: string) => {
+  const handleSocialChange = (field: keyof SocialLinks, value: string) => {
       setFormData(prev => ({
           ...prev,
           socialLinks: {
-              ...prev.socialLinks,
+              ...(prev.socialLinks || {}), // Ensure object exists
               [field]: value
           }
       }));

@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Application, Job, SavedJob, JobAlert } from '../types';
-import { Briefcase, CheckCircle, XCircle, Video, Sparkles, Building, BookOpen, Star, TrendingUp, ArrowRight, Zap, Bell, Bookmark, Download } from 'lucide-react';
-import SkillAssessmentModal from './SkillAssessmentModal';
+import { Briefcase, Video, Sparkles, BookOpen, Zap, Bell, Bookmark, Download } from 'lucide-react';
 import { getSavedJobs, createJobAlert, getJobAlerts, deleteJobAlert } from '../services/jobService';
 import JobCard from './JobCard';
 import ApplicationTimeline from './ApplicationTimeline';
@@ -20,8 +19,6 @@ interface CandidateDashboardProps {
 
 const CandidateDashboard: React.FC<CandidateDashboardProps> = ({ user, applications, jobs, onStartInterview, onViewJobs, onImproveCV, onVerifySkill }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'saved' | 'alerts'>('overview');
-  const [skillTestModalOpen, setSkillTestModalOpen] = useState(false);
-  const [selectedSkillForTest, setSelectedSkillForTest] = useState<{id: string, name: string} | null>(null);
   
   // New State
   const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
@@ -194,7 +191,12 @@ const CandidateDashboard: React.FC<CandidateDashboardProps> = ({ user, applicati
                             </h2>
                             <div className="grid gap-4">
                                 {smartRecommendedJobs.map(job => (
-                                    <JobCard key={job.id} job={job} onApply={onStartInterview} user={user} />
+                                    <JobCard 
+                                        key={job.id} 
+                                        job={job} 
+                                        onApply={(jobData) => onStartInterview(jobData.id)} 
+                                        user={user} 
+                                    />
                                 ))}
                             </div>
                         </div>
@@ -226,7 +228,12 @@ const CandidateDashboard: React.FC<CandidateDashboardProps> = ({ user, applicati
                   <div className="col-span-3 text-center py-12 text-gray-500">Belum ada lowongan yang disimpan.</div>
               ) : (
                   savedJobs.map(saved => (
-                      <JobCard key={saved.id} job={saved.job} onApply={onStartInterview} user={user} />
+                      <JobCard 
+                        key={saved.id} 
+                        job={saved.job} 
+                        onApply={(jobData) => onStartInterview(jobData.id)} 
+                        user={user} 
+                      />
                   ))
               )}
           </div>
